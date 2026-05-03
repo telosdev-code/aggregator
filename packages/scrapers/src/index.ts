@@ -5,3 +5,6 @@ export * from "./finnhub.js";
 export * from "./alpha-vantage.js";
 export * from "./cryptopanic.js";
 export * from "./coindesk-rss.js";
+export * from "./marketwatch-rss.js";
+export * from "./reddit.js";
+export * from "./ticker-detector.js";

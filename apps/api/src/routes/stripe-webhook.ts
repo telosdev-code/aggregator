@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, raw } from "express";
 import Stripe from "stripe";
 import { prisma } from "@aggregator/db";
 import type { Tier, SubscriptionStatus } from "@aggregator/db";
@@ -17,7 +17,7 @@ const PRICE_TO_TIER: Record<string, Tier> = {
 // Raw body needed for signature verification
 stripeWebhookRouter.post(
   "/",
-  require("express").raw({ type: "application/json" }),
+  raw({ type: "application/json" }),
   async (req, res) => {
     const sig = req.headers["stripe-signature"] as string;
     let event: Stripe.Event;

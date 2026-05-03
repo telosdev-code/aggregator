@@ -12,6 +12,7 @@ import { stripeWebhookRouter } from "./routes/stripe-webhook.js";
 import { clerkWebhookRouter } from "./routes/clerk-webhook.js";
 import { pushRouter } from "./routes/push.js";
 import { adminRouter } from "./routes/admin.js";
+import { alertsRouter } from "./routes/alerts.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -42,6 +43,7 @@ app.use("/api/watchlist", watchlistRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/push", pushRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/alerts", alertsRouter);
 app.use("/webhooks/clerk", clerkWebhookRouter);
 
 app.use(errorHandler);

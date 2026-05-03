@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import pino from "pino";
 import { prisma } from "@aggregator/db";
-import { QUEUES, hashContent } from "@aggregator/shared";
+import { QUEUES } from "@aggregator/shared";
 import type { NormalizedArticle } from "@aggregator/shared";
 import {
   YahooRssScraper,
@@ -10,8 +10,10 @@ import {
   AlphaVantageScraper,
   CryptoPanicScraper,
   CoinDeskRssScraper,
+  MarketWatchRssScraper,
+  RedditScraper,
+  TickerDetector,
 } from "@aggregator/scrapers";
-import { TickerDetector } from "@aggregator/scrapers";
 import { summarizeQueue } from "../lib/queue.js";
 import { getConnection } from "../lib/queue.js";
 
@@ -24,6 +26,8 @@ const SCRAPERS = [
   new AlphaVantageScraper(),
   new CryptoPanicScraper(),
   new CoinDeskRssScraper(),
+  new MarketWatchRssScraper(),
+  new RedditScraper(),
 ];
 
 let detector: TickerDetector | null = null;

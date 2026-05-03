@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Yahoo Finance</title>
+    <link>https://finance.yahoo.com</link>
+    <description>Yahoo Finance RSS Feed</description>
+    <item>
+      <title>Apple Reports Record Q4 Earnings, $AAPL Surges 5%</title>
+      <link>https://finance.yahoo.com/news/apple-q4-earnings-12345</link>
+      <pubDate>Thu, 15 Jan 2025 14:30:00 +0000</pubDate>
+      <description>Apple Inc. reported record fourth quarter earnings Thursday, with revenue of $125 billion beating Wall Street expectations. The strong results were driven by iPhone sales and services growth.</description>
+      <author>Yahoo Finance Staff</author>
+    </item>
+    <item>
+      <title>Microsoft Azure Growth Accelerates, MSFT Shares Rise</title>
+      <link>https://finance.yahoo.com/news/microsoft-azure-growth-67890</link>
+      <pubDate>Thu, 15 Jan 2025 12:00:00 +0000</pubDate>
+      <description>Microsoft Corporation reported that Azure cloud revenue grew 33% year-over-year, exceeding analyst estimates. The company also raised its quarterly dividend.</description>
+    </item>
+    <item>
+      <title>Tesla Deliveries Miss Estimates Amid EV Competition</title>
+      <link>https://finance.yahoo.com/news/tesla-deliveries-q4-11111</link>
+      <pubDate>Wed, 14 Jan 2025 18:00:00 +0000</pubDate>
+      <description>Tesla Inc. reported quarterly deliveries of 484,000 vehicles, falling short of the 510,000 analyst consensus estimate. Competition from Chinese EV makers weighed on results.</description>
+    </item>
+  </channel>
+</rss>
