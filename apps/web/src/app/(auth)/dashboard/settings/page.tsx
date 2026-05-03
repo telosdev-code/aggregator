@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Loader2 } from "lucide-react";
+import { registerPushSubscription, unregisterPushSubscription } from "@/lib/push";
 
 interface Prefs {
   emailDigestEnabled: boolean;
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const { data, mutate } = useSWR<Prefs>(`${API}/api/users/me`, fetcher);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
   async function save(updates: Partial<Prefs>) {
     setSaving(true);
@@ -72,15 +74,27 @@ export default function SettingsPage() {
         {/* Push notifications */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <h2 className="mb-4 font-semibold">Push notifications</h2>
-          <label className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <span className="text-sm">Enable push notifications</span>
-            <input
-              type="checkbox"
-              checked={data.pushEnabled}
-              onChange={(e) => save({ pushEnabled: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600"
-            />
-          </label>
+            <button
+              disabled={pushLoading}
+              onClick={async () => {
+                setPushLoading(true);
+                if (data.pushEnabled) {
+                  await unregisterPushSubscription();
+                  await save({ pushEnabled: false });
+                } else {
+                  const ok = await registerPushSubscription();
+                  if (ok) await save({ pushEnabled: true });
+                }
+                setPushLoading(false);
+              }}
+              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${data.pushEnabled ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {data.pushEnabled ? "Enabled" : "Enable"}
+            </button>
+          </div>
         </div>
 
         {/* Marketing */}

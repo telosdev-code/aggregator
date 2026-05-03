@@ -66,6 +66,19 @@ stripeWebhookRouter.post(
 
 async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
+    // Fired after a successful Checkout — persist the Stripe customer ID on the user
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const clerkUserId = session.metadata?.clerkUserId;
+      const customerId = session.customer as string | null;
+      if (clerkUserId && customerId) {
+        await prisma.user.updateMany({
+          where: { clerkId: clerkUserId },
+          data: { stripeCustomerId: customerId },
+        });
+      }
+      break;
+    }
     case "customer.subscription.created":
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;

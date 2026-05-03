@@ -1,3 +1,5 @@
+import { initSentry } from "./lib/sentry.js";
+initSentry();
 import { startScrapeWorker } from "./workers/scrape-worker.js";
 import { startSummarizeWorker } from "./workers/summarize-worker.js";
 import { startAlertWorker } from "./workers/alert-worker.js";

@@ -1,3 +1,5 @@
+import { initSentry } from "./lib/sentry.js";
+initSentry();
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -35,15 +37,24 @@ app.use(
   }),
 );
 
+// Stricter rate limit for mutation endpoints
+const writeLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please slow down." },
+});
+
 app.get("/health", (_req, res) => res.json({ status: "ok", ts: Date.now() }));
 
 app.use("/api/tickers", tickersRouter);
 app.use("/api/articles", articlesRouter);
-app.use("/api/watchlist", watchlistRouter);
-app.use("/api/users", usersRouter);
-app.use("/api/push", pushRouter);
+app.use("/api/watchlist", writeLimiter, watchlistRouter);
+app.use("/api/users", writeLimiter, usersRouter);
+app.use("/api/push", writeLimiter, pushRouter);
 app.use("/api/admin", adminRouter);
-app.use("/api/alerts", alertsRouter);
+app.use("/api/alerts", writeLimiter, alertsRouter);
 app.use("/webhooks/clerk", clerkWebhookRouter);
 
 app.use(errorHandler);

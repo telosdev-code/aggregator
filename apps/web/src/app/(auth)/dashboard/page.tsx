@@ -92,6 +92,9 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <h3 className="mb-3 font-semibold">Quick links</h3>
             <nav className="space-y-1.5 text-sm">
+              <Link href="/dashboard/alerts" className="flex items-center gap-2 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                🔔 Alert rules
+              </Link>
               <Link href="/dashboard/settings" className="flex items-center gap-2 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900">
                 ⚙️ Notification settings
               </Link>
