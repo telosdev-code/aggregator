@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Tier {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum AssetType {
+  STOCK
+  CRYPTO
+  ETF
+  INDEX
+}
+
+enum Sentiment {
+  BULLISH
+  BEARISH
+  NEUTRAL
+}
+
+enum ImpactTag {
+  BREAKING
+  EARNINGS
+  ANALYST_RATING
+  REGULATORY
+  MACRO
+  SOCIAL_BUZZ
+  GENERAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+enum AlertChannel {
+  EMAIL
+  PUSH
+  TELEGRAM
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(cuid())
+  clerkId          String   @unique
+  email            String   @unique
+  name             String?
+  avatarUrl        String?
+  tier             Tier     @default(FREE)
+  stripeCustomerId String?  @unique
+
+  // Email preferences
+  emailDigestEnabled    Boolean @default(true)
+  emailDigestFrequency  String  @default("daily") // "daily", "twice_daily", "instant"
+  pushEnabled           Boolean @default(true)
+  marketingEmailEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription      Subscription?
+  watchlistItems    WatchlistItem[]
+  alertConfigs      AlertConfig[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  digestLogs        DigestLog[]
+
+  @@index([clerkId])
+  @@index([email])
+}
+
+// ─── Tickers ──────────────────────────────────────────────────────────────────
+
+model Ticker {
+  id        String    @id @default(cuid())
+  symbol    String    @unique // AAPL, BTC-USD, ETH-USD
+  name      String    // Apple Inc., Bitcoin
+  type      AssetType
+  exchange  String?   // NYSE, NASDAQ, BINANCE
+  sector    String?   // Technology, DeFi, Healthcare
+  industry  String?   // Semiconductors, Layer 1, Biotech
+  marketCap BigInt?
+
+  // Alias list for ticker detection: ["Apple", "Apple Inc.", "$AAPL", "AAPL"]
+  aliases String[]
+
+  logoUrl    String?
+  websiteUrl String?
+  isActive   Boolean @default(true)
+  rank       Int?    // market cap rank
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articleTickers ArticleTicker[]
+  watchlistItems WatchlistItem[]
+  alertConfigs   AlertConfig[]
+
+  @@index([type, isActive])
+  @@index([sector])
+}
+
+// ─── Articles ─────────────────────────────────────────────────────────────────
+
+model Article {
+  id          String    @id @default(cuid())
+  title       String
+  url         String    @unique
+  source      String    // scraper identifier: "yahoo_rss", "coingecko", "finnhub"
+  sourceName  String    // human-readable: "Yahoo Finance", "CoinGecko"
+  publishedAt DateTime
+  body        String?   @db.Text
+  imageUrl    String?
+  author      String?
+
+  // Deduplication — SHA-256 of normalized(title + url + body[:500])
+  contentHash String @unique
+
+  // Sentiment from scraper or AI; -1 (bearish) to 1 (bullish)
+  sentimentScore Float?
+
+  impactTag   ImpactTag?
+  isProcessed Boolean    @default(false) // has AI summary been generated?
+  isVisible   Boolean    @default(true)  // admin can hide spam/low-quality
+
+  // Free vs paid content gating: FREE articles available to all, PAID delayed 24h for free users
+  isPremium Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articleTickers ArticleTicker[]
+  summary        ArticleSummary?
+
+  @@index([publishedAt(sort: Desc)])
+  @@index([source, publishedAt(sort: Desc)])
+  @@index([isProcessed, isVisible])
+  @@index([contentHash])
+}
+
+// ─── Article ↔ Ticker (M:M) ───────────────────────────────────────────────────
+
+model ArticleTicker {
+  id        String @id @default(cuid())
+  articleId String
+  tickerId  String
+
+  // How confident is the ticker detection? 1.0 = explicit "$AAPL", 0.7 = alias match
+  confidence Float @default(1.0)
+
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  ticker  Ticker  @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, tickerId])
+  @@index([tickerId, createdAt(sort: Desc)])
+  @@index([articleId])
+}
+
+// ─── AI Summaries ─────────────────────────────────────────────────────────────
+
+model ArticleSummary {
+  id        String @id @default(cuid())
+  articleId String @unique
+
+  summary   String    @db.Text // 2-3 sentence summary
+  keyPoints String[]           // extracted bullet points
+  sentiment Sentiment
+  catalysts String[]           // key price-relevant facts
+  model     String             // "claude-haiku-4-5-20251001", "claude-sonnet-4-6"
+
+  promptTokens     Int
+  completionTokens Int
+  costUsd          Float // calculated from token counts + model pricing
+
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([sentiment])
+}
+
+// ─── Subscriptions (Stripe) ───────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  stripeSubscriptionId String             @unique
+  stripePriceId        String
+  status               SubscriptionStatus
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEnd             DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ─── Watchlist ────────────────────────────────────────────────────────────────
+
+model WatchlistItem {
+  id        String @id @default(cuid())
+  userId    String
+  tickerId  String
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tickerId])
+  @@index([userId, sortOrder])
+}
+
+// ─── Alert Configs ────────────────────────────────────────────────────────────
+
+model AlertConfig {
+  id      String  @id @default(cuid())
+  userId  String
+  tickerId String? // null = applies to all watchlist tickers
+
+  // Filtering criteria
+  sentimentFilter   Sentiment[] // empty = all sentiments
+  impactTags        ImpactTag[] // empty = all tags
+  minSentimentScore Float?      // absolute value threshold
+  keywords          String[]    // article must contain at least one
+
+  channels     AlertChannel[]
+  frequencyCap Int     @default(15) // min minutes between alerts for this ticker
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker Ticker? @relation(fields: [tickerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isActive])
+  @@index([tickerId])
+}
+
+// ─── Notifications Log ────────────────────────────────────────────────────────
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  articleId String?
+  channel   AlertChannel
+  status    NotificationStatus @default(PENDING)
+  sentAt    DateTime?
+  error     String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+}
+
+// ─── Web Push Subscriptions ───────────────────────────────────────────────────
+
+model PushSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Email Digest Logs ────────────────────────────────────────────────────────
+
+model DigestLog {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   // "daily_morning", "daily_evening", "instant"
+  articleIds String[] // articles included in this digest
+  sentAt     DateTime @default(now())
+  error      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt(sort: Desc)])
+  @@index([type, sentAt(sort: Desc)])
+}
+
+// ─── Webhook Event Idempotency ────────────────────────────────────────────────
+
+model WebhookEvent {
+  id          String    @id // provider's event ID (e.g. evt_xxx, msg_xxx)
+  provider    String    // "stripe", "clerk"
+  type        String    // "customer.subscription.updated", "user.created"
+  payload     Json
+  processedAt DateTime?
+  error       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([provider, type])
+  @@index([createdAt])
+}
+
+// ─── Scraper Run Telemetry ────────────────────────────────────────────────────
+
+model ScraperRun {
+  id            String    @id @default(cuid())
+  source        String    // "yahoo_rss", "coingecko", "finnhub", etc.
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  articlesFound Int       @default(0)
+  articlesNew   Int       @default(0)
+  durationMs    Int?
+  error         String?
+
+  @@index([source, startedAt(sort: Desc)])
+}
+
+// ─── AI Spend Tracking ────────────────────────────────────────────────────────
+
+model AiSpendLog {
+  id         String   @id @default(cuid())
+  date       String   // "2025-01-15" — for daily cap enforcement
+  model      String
+  totalCostUsd Float  @default(0)
+  totalTokens  Int    @default(0)
+  articleCount Int    @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([date, model])
+  @@index([date])
+}
